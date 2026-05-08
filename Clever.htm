@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EC SERVICE</title>
+<style>
+:root{--bg:#000;--glass-border:rgba(255,255,255,0.2)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--bg);color:#fff;min-height:100vh;overflow-x:hidden}
+#starfield{position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1}
+header{padding:40px 20px;text-align:center;font-size:48px;font-weight:900;color:#fff;letter-spacing:6px;text-transform:uppercase;position:relative;z-index:10;text-shadow:0 0 5px #fff,0 0 20px #fff,0 0 40px #fff}
+.top-row{width:100%;display:flex;justify-content:center;gap:12px;margin:20px 0 40px;padding:0 20px;position:relative;z-index:10}
+.search-wrap{display:flex;align-items:center;gap:12px;width:920px;max-width:100%}
+#searchInput{flex:1;padding:16px 24px;font-size:18px;border-radius:50px;border:1px solid var(--glass-border);background:rgba(0,0,0,0.6);color:#fff;transition:all .3s}
+#searchInput:focus{outline:none;box-shadow:0 0 15px rgba(255,255,255,0.3);border-color:#fff}
+#searchInput::placeholder{color:#666}
+#ratingSelect{min-width:170px;height:50px;border-radius:50px;padding:10px 20px;font-size:15px;background:rgba(0,0,0,0.6);color:#fff;border:1px solid var(--glass-border);appearance:none;transition:.3s;cursor:pointer}
+#ratingSelect:hover{border-color:#fff}
+#main{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:25px;padding:0 40px 60px;max-width:1400px;margin:0 auto;position:relative;z-index:10}
+.card{position:relative;background:rgba(0,0,0,0.6);border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);transition:transform .3s,box-shadow .3s;cursor:pointer}
+.card:hover{transform:translateY(-8px) scale(1.02);box-shadow:0 10px 30px rgba(255,255,255,0.2);border-color:rgba(255,255,255,0.3)}
+.card-image{position:relative;width:100%;aspect-ratio:2/3;overflow:hidden}
+.card img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s}
+.card:hover img{transform:scale(1.05)}
+.play-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .3s}
+.card:hover .play-overlay{opacity:1}
+.play-button{width:50px;height:50px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.play-button::after{content:'';width:0;height:0;border-left:16px solid #000;border-top:10px solid transparent;border-bottom:10px solid transparent;margin-left:4px}
+.card h4{padding:16px;font-size:16px;text-align:center;color:#fff;line-height:1.2;background:rgba(0,0,0,0.8);font-weight:600;border-top:1px solid rgba(255,255,255,0.1)}
+#loadingIndicator{display:none;justify-content:center;align-items:center;gap:15px;margin:40px auto;color:#fff;font-weight:bold;letter-spacing:2px}
+.dots span{display:inline-block;width:8px;height:8px;border-radius:50%;background:#fff;animation:dotPulse 1.2s infinite ease-in-out}
+.dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+@keyframes dotPulse{0%,100%{transform:scale(0);opacity:0}50%{transform:scale(1);opacity:1}}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,0.95);display:none;align-items:center;justify-content:center;z-index:1000;padding:24px}
+#modal.active{display:flex}
+#modalContent{width:100%;max-width:1000px;background:#0a0a0a;border-radius:12px;overflow:hidden;padding:30px;position:relative;display:flex;flex-direction:column;gap:20px;border:1px solid rgba(255,255,255,0.2);box-shadow:0 0 50px rgba(255,255,255,0.1)}
+#modalTitle{font-size:28px;text-align:center;color:#fff;font-weight:700;letter-spacing:2px}
+#modalRating{position:absolute;top:20px;left:24px;background:#000;color:#fff;padding:8px 16px;border-radius:20px;font-size:14px;font-weight:700;border:1px solid #fff}
+.modal-controls{display:flex;align-items:center;justify-content:center;gap:15px;flex-wrap:wrap;padding:10px}
+.modal-controls select{background:#000;color:#fff;border:1px solid rgba(255,255,255,0.2);padding:12px 20px;border-radius:30px;font-size:14px;appearance:none;cursor:pointer}
+.modal-controls select:hover{border-color:#fff}
+#closeModal{position:absolute;top:20px;right:24px;background:transparent;color:#fff;border:1px solid #fff;padding:8px 16px;border-radius:30px;font-size:14px;font-weight:bold;cursor:pointer;transition:all .3s}
+#closeModal:hover{background:#fff;color:#000}
+#iframeWrap{width:100%;height:550px;border-radius:12px;overflow:hidden;background:#000;border:1px solid rgba(255,255,255,0.1)}
+#modalIframe{width:100%;height:100%;border:none;background:#000;display:block}
+.src-status{text-align:center;font-size:11px;color:#555;margin-top:8px;letter-spacing:1px}
+@media(max-width:768px){header{font-size:32px}#main{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:15px;padding:0 20px}#iframeWrap{height:300px}.search-wrap{flex-direction:column}#ratingSelect{width:100%}}
+</style>
+</head>
+<body>
+<canvas id="starfield"></canvas>
+<header>EC SERVICE</header>
+<div class="top-row">
+  <div class="search-wrap">
+    <input id="searchInput" placeholder="Search database..." autocomplete="off"/>
+    <select id="ratingSelect">
+      <option value="all">All Ratings</option>
+      <option value="gpg">G / PG</option>
+      <option value="pg13">PG-13</option>
+      <option value="r">R</option>
+      <option value="nc17">NC-17 / Other</option>
+    </select>
+  </div>
+</div>
+<div id="main"></div>
+<div id="loadingIndicator"><div class="text">LOADING DATA</div><div class="dots"><span></span><span></span><span></span></div></div>
+<div id="modal">
+  <div id="modalContent">
+    <div id="modalRating">Rated: NR</div>
+    <button id="closeModal" onclick="closeModal()">CLOSE</button>
+    <div id="modalTitle"></div>
+    <div class="modal-controls">
+      <select id="seasonSelect" style="display:none"></select>
+      <select id="episodeSelect" style="display:none"></select>
+      <select id="sourceSelect" onchange="onSourceChange()"></select>
+    </div>
+    <div id="iframeWrap">
+      <iframe id="modalIframe" allowfullscreen allow="autoplay;fullscreen"></iframe>
+    </div>
+    <div class="src-status" id="srcStatus">EC SERVICE</div>
+  </div>
+</div>
+<script>
+const canvas=document.getElementById('starfield'),ctx=canvas.getContext('2d');
+let sw,sh,stars=[];
+function initStars(){sw=canvas.width=window.innerWidth;sh=canvas.height=window.innerHeight;stars=[];for(let i=0;i<200;i++)stars.push({x:Math.random()*sw,y:Math.random()*sh,r:Math.random()*1.5,vx:(Math.random()-.5)*.1,vy:(Math.random()-.5)*.1,a:Math.random(),g:Math.random()*.5+.5})}
+function animStars(){ctx.clearRect(0,0,sw,sh);stars.forEach(s=>{const g=100+s.g*155;ctx.fillStyle=`rgba(${g},${g},${g},${s.a})`;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();s.x+=s.vx;s.y+=s.vy;if(s.x<0)s.x=sw;if(s.x>sw)s.x=0;if(s.y<0)s.y=sh;if(s.y>sh)s.y=0});requestAnimationFrame(animStars)}
+window.addEventListener('resize',initStars);initStars();animStars();
+
+const API_KEY='3a73619bbb8fc6d47742d1b5b2b707b5';
+const BASE='https://api.themoviedb.org/3';
+
+function movieSources(id){return[
+  {label:'vidsrc.sbs',url:`https://vidsrc.sbs/embed/movie/${id}`},
+  {label:'vidsrc.mov',url:`https://vidsrc.mov/embed/movie/${id}`},
+  {label:'vidsrc.icu',url:`https://vidsrc.icu/embed/movie?tmdb=${id}`},
+  {label:'vidlink.pro',url:`https://vidlink.pro/movie/${id}`},
+  {label:'embed.su',url:`https://embed.su/embed/movie/${id}`},
+  {label:'autoembed.cc',url:`https://player.autoembed.cc/embed/movie/${id}`},
+  {label:'moviesapi.club',url:`https://moviesapi.club/movie/${id}`},
+]}
+function tvSources(id,s,e){return[
+  {label:'vidsrc.sbs',url:`https://vidsrc.sbs/embed/tv/${id}/${s}/${e}`},
+  {label:'vidsrc.mov',url:`https://vidsrc.mov/embed/tv/${id}/${s}/${e}`},
+  {label:'vidsrc.icu',url:`https://vidsrc.icu/embed/tv?tmdb=${id}&season=${s}&episode=${e}`},
+  {label:'vidlink.pro',url:`https://vidlink.pro/tv/${id}/${s}/${e}`},
+  {label:'embed.su',url:`https://embed.su/embed/tv/${id}/${s}/${e}`},
+  {label:'autoembed.cc',url:`https://player.autoembed.cc/embed/tv/${id}/${s}/${e}`},
+  {label:'moviesapi.club',url:`https://moviesapi.club/tv/${id}-${s}-${e}`},
+]}
+
+let currentItem=null,currentPage=1,loading=false,inSearch=false,annotatedCache=[];
+const main=document.getElementById('main');
+const modal=document.getElementById('modal');
+const modalTitle=document.getElementById('modalTitle');
+const modalRating=document.getElementById('modalRating');
+const modalIframe=document.getElementById('modalIframe');
+const sourceSelect=document.getElementById('sourceSelect');
+const seasonSelect=document.getElementById('seasonSelect');
+const episodeSelect=document.getElementById('episodeSelect');
+const loadingIndicator=document.getElementById('loadingIndicator');
+const srcStatus=document.getElementById('srcStatus');
+
+function showLoading(v){loadingIndicator.style.display=v?'flex':'none'}
+
+function certMatchesGroup(cert,group){
+  if(!cert)return group==='all';
+  cert=cert.trim().toUpperCase();
+  if(group==='all')return true;
+  if(group==='gpg')return['G','PG','TV-Y','TV-G','TV-Y7'].includes(cert);
+  if(group==='pg13')return cert==='PG-13'||cert==='TV-14';
+  if(group==='r')return cert==='R'||cert==='TV-MA';
+  if(group==='nc17')return cert==='NC-17'||(!['G','PG','PG-13','R','TV-14','TV-MA','TV-PG','TV-G','TV-Y','TV-Y7'].includes(cert));
+  return false;
+}
+
+async function getMovieCert(id){try{const r=await fetch(`${BASE}/movie/${id}/release_dates?api_key=${API_KEY}`);const d=await r.json();const us=d.results?.find(x=>x.iso_3166_1==='US')||d.results?.[0];return us?.release_dates?.find(x=>x.certification?.trim())?.certification||null}catch{return null}}
+async function getTvCert(id){try{const r=await fetch(`${BASE}/tv/${id}/content_ratings?api_key=${API_KEY}`);const d=await r.json();const us=d.results?.find(x=>x.iso_3166_1==='US')||d.results?.[0];return us?.rating||null}catch{return null}}
+
+async function annotateWithCerts(items){
+  const out=[];
+  for(const item of items){
+    const cached=annotatedCache.find(c=>c.id===item.id&&c.media_type===item.media_type);
+    if(cached){out.push(cached);continue}
+    const cert=(item.media_type==='tv'||item.first_air_date)?await getTvCert(item.id):await getMovieCert(item.id);
+    const ni={...item,_cert:cert};
+    out.push(ni);
+  }
+  return out;
+}
+
+function createCard(item){
+  const card=document.createElement('div');
+  card.className='card';
+  const img=item.poster_path?`https://image.tmdb.org/t/p/w500${item.poster_path}`:'https://placehold.co/500x750/111/555?text=No+Image';
+  card.innerHTML=`<div class="card-image"><img src="${img}" alt="" loading="lazy"><div class="play-overlay"><div class="play-button"></div></div></div><h4>${item.title||item.name||'Untitled'}</h4>`;
+  card.addEventListener('click',()=>openModal(item));
+  main.appendChild(card);
+}
+
+function renderCached(){
+  const sel=document.getElementById('ratingSelect').value||'all';
+  main.innerHTML='';
+  annotatedCache.forEach(item=>{if(certMatchesGroup(item._cert,sel))createCard(item)});
+}
+
+async function loadItems(){
+  if(loading||inSearch)return 0;
+  loading=true;showLoading(true);
+  try{
+    const[mr,tr]=await Promise.all([
+      fetch(`${BASE}/movie/popular?api_key=${API_KEY}&page=${currentPage}`).then(r=>r.json()),
+      fetch(`${BASE}/tv/popular?api_key=${API_KEY}&page=${currentPage}`).then(r=>r.json())
+    ]);
+    const combined=[...(mr.results||[]),...(tr.results||[])];
+    const annotated=await annotateWithCerts(combined);
+    const newOnes=[];
+    annotated.forEach(it=>{
+      if(!annotatedCache.find(c=>c.id===it.id&&c.media_type===it.media_type)){annotatedCache.push(it);newOnes.push(it)}
+    });
+    const sel=document.getElementById('ratingSelect').value||'all';
+    newOnes.forEach(it=>{if(certMatchesGroup(it._cert,sel))createCard(it)});
+    currentPage++;
+    return newOnes.length;
+  }catch{return 0}finally{loading=false;showLoading(false)}
+}
+
+function populateSources(srcs){
+  sourceSelect.innerHTML='';
+  srcs.forEach(s=>{const o=document.createElement('option');o.value=s.url;o.textContent=s.label;sourceSelect.appendChild(o)});
+  if(srcs.length){sourceSelect.selectedIndex=0;loadFrame(srcs[0].url)}
+}
+
+function loadFrame(url){
+  srcStatus.textContent='Loading: '+url.split('/')[2]+'…';
+  modalIframe.src=url;
+  modalIframe.onload=()=>srcStatus.textContent='Streaming via: '+url.split('/')[2];
+}
+
+function onSourceChange(){loadFrame(sourceSelect.value)}
+
+function openModal(item){
+  currentItem=item;
+  modal.classList.add('active');
+  modalTitle.textContent=item.title||item.name||'';
+  seasonSelect.style.display='none';
+  episodeSelect.style.display='none';
+  sourceSelect.innerHTML='';
+  modalIframe.src='';
+  srcStatus.textContent='';
+  modalRating.textContent='Rated: '+(item._cert||'NR');
+  const isTV=item.media_type==='tv'||!!item.first_air_date;
+  if(isTV){
+    fetch(`${BASE}/tv/${item.id}?api_key=${API_KEY}`).then(r=>r.json()).then(data=>{
+      const seasons=(data.seasons||[]).filter(s=>s.season_number>0);
+      seasonSelect.innerHTML='';
+      seasons.forEach(s=>{const o=document.createElement('option');o.value=s.season_number;o.textContent=s.name||`Season ${s.season_number}`;seasonSelect.appendChild(o)});
+      if(seasons.length){
+        seasonSelect.style.display='inline-block';
+        seasonSelect.onchange=()=>loadEpisodes(item.id,+seasonSelect.value);
+        seasonSelect.selectedIndex=0;
+        loadEpisodes(item.id,seasons[0].season_number);
+      }
+    });
+  }else{populateSources(movieSources(item.id))}
+}
+
+function loadEpisodes(tvId,seasonNum){
+  fetch(`${BASE}/tv/${tvId}/season/${seasonNum}?api_key=${API_KEY}`).then(r=>r.json()).then(data=>{
+    episodeSelect.innerHTML='';
+    (data.episodes||[]).forEach(ep=>{const o=document.createElement('option');o.value=ep.episode_number;o.textContent=`E${ep.episode_number}: ${ep.name||'Episode '+ep.episode_number}`;episodeSelect.appendChild(o)});
+    if(episodeSelect.options.length){
+      episodeSelect.style.display='inline-block';
+      episodeSelect.onchange=()=>populateSources(tvSources(currentItem.id,seasonNum,+episodeSelect.value));
+      episodeSelect.selectedIndex=0;
+      populateSources(tvSources(currentItem.id,seasonNum,1));
+    }
+  });
+}
+
+function closeModal(){modal.classList.remove('active');modalIframe.src=''}
+
+let searchTimer=null;
+document.getElementById('searchInput').addEventListener('input',e=>{
+  clearTimeout(searchTimer);
+  searchTimer=setTimeout(async()=>{
+    const q=e.target.value.trim();main.innerHTML='';
+    if(!q){inSearch=false;renderCached();return}
+    inSearch=true;showLoading(true);
+    try{
+      const r=await fetch(`${BASE}/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(q)}`);
+      const d=await r.json();
+      const annotated=await annotateWithCerts(d.results||[]);
+      const sel=document.getElementById('ratingSelect').value||'all';
+      annotated.forEach(it=>{if(certMatchesGroup(it._cert,sel))createCard(it)});
+    }finally{showLoading(false)}
+  },500);
+});
+
+document.getElementById('ratingSelect').addEventListener('change',()=>{if(!inSearch)renderCached()});
+window.addEventListener('scroll',()=>{if(!inSearch&&window.innerHeight+window.scrollY>=document.body.offsetHeight-500)loadItems()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('active'))closeModal()});
+
+loadItems();
+</script>
+</body>
+</html>
